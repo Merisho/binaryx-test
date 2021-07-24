@@ -1,0 +1,26 @@
+version: "3.9"  # optional since v1.27.0
+
+services:
+  postgres:
+    image: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data-binaryx:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: 12345
+      POSTGRES_USER: admin
+      POSTGRES_HOST: localhost
+  pgadmin:
+    image: dpage/pgadmin4
+    ports:
+      - "80:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: 12345
+    volumes:
+      - pg-admin-data-binaryx:/var/lib/pgadmin
+
+volumes:
+  pg-data-binaryx: {}
+  pg-admin-data-binaryx: {}
