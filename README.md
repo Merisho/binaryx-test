@@ -26,4 +26,6 @@ To run the tests:
 There is no balance state for a wallet. Wallet is completely stateless and its balance is calculated from transactions.
 
 This may lead to write conflicts during concurrent transactions for a single wallet.
-It could be solved by using pessimistic lock: the code could execute locking SQL select (`SELECT ... FOR UPDATE`), then for example check if there is enough balance, then insert new transaction and then commit
+It could be solved by using pessimistic lock.
+The code could execute the query with a lock: first it locks the table in `ROW EXCLUSIVE` mode and then performs `SELECT ... FOR UPDATE`.
+Then the code would check if there is enough balance, then insert new transaction and then commit the DB transaction
