@@ -2,6 +2,7 @@ package activerecord
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/mail"
 	"regexp"
@@ -29,6 +30,14 @@ func (uf UserFactory) New(email, password, firstName, lastName string) (*User, e
 }
 
 func (uf UserFactory) FindByEmail(ctx context.Context, email string) (*User, error) {
+	return uf.findOne(ctx, `WHERE email=$1`, email)
+}
+
+func (uf UserFactory) FindByID(ctx context.Context, id uuid.UUID) (*User, error) {
+	return uf.findOne(ctx, `WHERE id=$1`, id)
+}
+
+func (uf UserFactory) findOne(ctx context.Context, where string, whereParams ...interface{}) (*User, error) {
 	user := &User{
 		db:        uf.db,
 		id:        uuid.UUID{},
@@ -38,7 +47,9 @@ func (uf UserFactory) FindByEmail(ctx context.Context, email string) (*User, err
 		lastName:  "",
 		wallets:   nil,
 	}
-	err := uf.db.QueryRow(ctx, `SELECT id,email,password,first_name,last_name FROM users WHERE email=$1`, email).
+
+	q := fmt.Sprintf(`SELECT id,email,password,first_name,last_name FROM users %s`, where)
+	err := uf.db.QueryRow(ctx, q, whereParams...).
 		Scan(&user.id, &user.email, &user.password, &user.firstName, &user.lastName)
 	if err != nil {
 		if err == pgx.ErrNoRows {

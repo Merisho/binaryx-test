@@ -137,6 +137,7 @@ func (ts *FakeCoinsAPITestSuite) testInvalidNames() {
 
 func (ts *FakeCoinsAPITestSuite) testSignIn() {
 	ts.Run("retrieve token", ts.testRetrieveToken)
+	ts.Run("auth by token", ts.testAuthByToken)
 }
 
 func (ts *FakeCoinsAPITestSuite) testRetrieveToken() {
@@ -155,4 +156,19 @@ func (ts *FakeCoinsAPITestSuite) testRetrieveToken() {
 	ts.NotEmpty(tokenRes.ExpiresAt)
 
 	ts.testToken = tokenRes.Token
+}
+
+func (ts *FakeCoinsAPITestSuite) testAuthByToken() {
+	var iamResponse api.IAmResponse
+	res := ts.Request("GET", "/iam").
+		WithResponseData(&iamResponse).
+		Do()
+	ts.Equal(401, res.Code)
+
+	res = ts.Request("GET", "/iam").
+		WithResponseData(&iamResponse).
+		WithBearerToken(ts.testToken).
+		Do()
+	ts.Equal(200, res.Code)
+	ts.Equal(ts.testUserEmail, iamResponse.Email)
 }

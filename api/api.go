@@ -65,6 +65,7 @@ func (s *Server) Gin() *gin.Engine {
 func (s *Server) initEndpoints() {
 	s.gin.Handle(http.MethodPost, "/signup", s.signup)
 	s.gin.Handle(http.MethodPost, "/token", s.token)
+	s.gin.Handle(http.MethodGet, "/iam", s.authMiddleware, s.iam)
 }
 
 func (s *Server) signup(ctx *gin.Context) {
@@ -206,4 +207,26 @@ func (s *Server) token(ctx *gin.Context) {
 		ExpiresAt: expires.Unix(),
 	}
 	ctx.JSON(http.StatusOK, res)
+}
+
+func (s *Server) iam(ctx *gin.Context) {
+	userRaw, ok := ctx.Get("user")
+	if !ok {
+		ctx.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	user, ok := userRaw.(*activerecord.User)
+	if !ok {
+		log.Error("CRITICAL: user in context is not of *activerecord.User")
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	ctx.AbortWithStatusJSON(http.StatusOK, IAmResponse{
+		ID:        user.ID().String(),
+		Email:     user.Email(),
+		FirstName: user.FirstName(),
+		LastName:  user.LastName(),
+	})
 }

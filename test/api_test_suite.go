@@ -28,7 +28,6 @@ type APITestSuite struct {
 	server   *gin.Engine
 	email    string
 	password string
-	jwtToken string
 }
 
 func (ts *APITestSuite) Setup() *api.Server {
@@ -78,14 +77,12 @@ func (ts *APITestSuite) Request(method, url string) *Request {
 	return &Request{
 		server:   ts.server,
 		req:      req,
-		jwtToken: ts.jwtToken,
 	}
 }
 
 type Request struct {
 	server   *gin.Engine
 	req      *http.Request
-	jwtToken string
 	resData  interface{}
 	reqData  interface{}
 }
@@ -135,8 +132,8 @@ func (r *Request) prepareRequestData() io.ReadCloser {
 	return io.NopCloser(res)
 }
 
-func (r *Request) WithBearerToken() *Request {
-	r.req.Header.Set("Authorization", "Bearer " + r.jwtToken)
+func (r *Request) WithBearerToken(token string) *Request {
+	r.req.Header.Set("Authorization", "Bearer " + token)
 	return r
 }
 
