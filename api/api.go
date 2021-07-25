@@ -5,12 +5,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt"
 	"github.com/merisho/binaryx-test/activerecord"
 	"github.com/merisho/binaryx-test/service"
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -66,6 +64,7 @@ func (s *Server) initEndpoints() {
 	s.gin.Handle(http.MethodPost, "/signup", s.signup)
 	s.gin.Handle(http.MethodPost, "/token", s.token)
 	s.gin.Handle(http.MethodGet, "/iam", s.authMiddleware, s.iam)
+	s.gin.Handle(http.MethodGet, "/wallets", s.authMiddleware, s.wallets)
 }
 
 func (s *Server) signup(ctx *gin.Context) {
@@ -162,71 +161,36 @@ func (s *Server) signup(ctx *gin.Context) {
 	})
 }
 
-func (s *Server) token(ctx *gin.Context) {
-	var req TokenRequest
-	err := ctx.ShouldBindJSON(&req)
-	if err != nil {
-		ctx.AbortWithStatusJSON(http.StatusBadRequest, ErrorResponse{Error: "invalid request body"})
+func (s *Server) wallets(ctx *gin.Context) {
+	user := s.getRequestUser(ctx)
+	if user == nil {
+		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
-	user, err := s.activeRecords.User().FindByEmail(ctx, req.Email)
+	wallets, err := user.LoadWallets(ctx)
 	if err != nil {
-		switch err.(type) {
-		case activerecord.NotFoundError:
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, ErrorResponse{Error: "user not found"})
-		default:
-			log.WithError(err).Error("could not find user by email")
+		log.WithError(err).Errorf("could not load user wallets for user %s", user.ID().String())
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	var res []WalletResponse
+	for _, w := range wallets {
+		_, err := w.LoadTransactions(ctx)
+		if err != nil {
+			log.WithError(err).Errorf("could not load transactions for wallet %s", w.Address())
 			ctx.AbortWithStatus(http.StatusInternalServerError)
+			return
 		}
 
-		return
+		res = append(res, WalletResponse{
+			UserID:   w.UserID().String(),
+			Address:  w.Address(),
+			Currency: w.Currency(),
+			Balance:  w.Balance().String(),
+		})
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password()), []byte(req.Password))
-	if err != nil {
-		ctx.AbortWithStatusJSON(http.StatusUnauthorized, ErrorResponse{Error: "invalid password"})
-		return
-	}
-
-	expires := time.Now().Add(s.config.TokenTTLSeconds * time.Second)
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &jwt.StandardClaims{
-		Id:        user.ID().String(),
-		ExpiresAt: expires.Unix(),
-	})
-
-	signed, err := token.SignedString([]byte(s.config.JWTSecret))
-	if err != nil {
-		log.WithError(err).Error("error secret signing jwt token")
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
-
-	res := TokenResponse{
-		Token:     signed,
-		ExpiresAt: expires.Unix(),
-	}
-	ctx.JSON(http.StatusOK, res)
-}
-
-func (s *Server) iam(ctx *gin.Context) {
-	userRaw, ok := ctx.Get("user")
-	if !ok {
-		ctx.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-
-	user, ok := userRaw.(*activerecord.User)
-	if !ok {
-		log.Error("CRITICAL: user in context is not of *activerecord.User")
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
-
-	ctx.AbortWithStatusJSON(http.StatusOK, IAmResponse{
-		ID:        user.ID().String(),
-		Email:     user.Email(),
-		FirstName: user.FirstName(),
-		LastName:  user.LastName(),
-	})
+	ctx.AbortWithStatusJSON(http.StatusOK, res)
 }

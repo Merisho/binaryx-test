@@ -29,6 +29,7 @@ func (ts *FakeCoinsAPITestSuite) SetupSuite() {
 func (ts *FakeCoinsAPITestSuite) TestAPI() {
 	ts.Run("sign up", ts.testSignUp)
 	ts.Run("sign in", ts.testSignIn)
+	ts.Run("list wallets", ts.testListWallets)
 }
 
 func (ts *FakeCoinsAPITestSuite) testSignUp() {
@@ -171,4 +172,18 @@ func (ts *FakeCoinsAPITestSuite) testAuthByToken() {
 		Do()
 	ts.Equal(200, res.Code)
 	ts.Equal(ts.testUserEmail, iamResponse.Email)
+}
+
+func (ts *FakeCoinsAPITestSuite) testListWallets() {
+	var walletsRes []api.WalletResponse
+	res := ts.Request("GET", "/wallets").
+		WithResponseData(&walletsRes).
+		WithBearerToken(ts.testToken).
+		Do()
+	ts.Equal(200, res.Code)
+	ts.Len(walletsRes, 2)
+
+	for _, w := range walletsRes {
+		ts.Equal("100", w.Balance)
+	}
 }

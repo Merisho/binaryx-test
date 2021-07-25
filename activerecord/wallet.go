@@ -25,6 +25,29 @@ type WalletFactory struct {
 	db pgxtype.Querier
 }
 
+func (wf WalletFactory) FindByUserID(ctx context.Context, id uuid.UUID) ([]*Wallet, error) {
+	rows, err := wf.db.Query(ctx, `SELECT wallet,currency FROM user_wallets WHERE user_id=$1`, id)
+	if err != nil {
+		return nil, err
+	}
+
+	var wallets []*Wallet
+	for rows.Next() {
+		w := &Wallet{
+			db:     wf.db,
+			userID: id,
+		}
+		err := rows.Scan(&w.address, &w.currency)
+		if err != nil {
+			return nil, err
+		}
+
+		wallets = append(wallets, w)
+	}
+
+	return wallets, nil
+}
+
 func (wf WalletFactory) New(owner uuid.UUID, currency, address string) (*Wallet, error) {
 	return newWallet(wf.db, owner, currency, address)
 }
@@ -90,6 +113,16 @@ func (w *Wallet) AcceptTransaction(from *Wallet, amount decimal.Decimal) (*Trans
 
 	w.transactions = append(w.transactions, tx)
 	return tx, nil
+}
+
+func (w *Wallet) LoadTransactions(ctx context.Context) ([]*Transaction, error) {
+	txs, err := newTransactionFactory(w.db).FindAllWithWallet(ctx, w.address)
+	if err != nil {
+		return nil, err
+	}
+
+	w.transactions = txs
+	return txs, nil
 }
 
 func (w *Wallet) Balance() decimal.Decimal {

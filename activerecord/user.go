@@ -170,6 +170,16 @@ func (u *User) Password() string {
 	return u.password
 }
 
+func (u *User) LoadWallets(ctx context.Context) ([]*Wallet, error) {
+	wallets, err := newWalletFactory(u.db).FindByUserID(ctx, u.id)
+	if err != nil {
+		return nil, err
+	}
+
+	u.wallets = wallets
+	return wallets, nil
+}
+
 func invalidPassword(password string) bool {
 	l := len(password)
 	return l < 8 || l > 50

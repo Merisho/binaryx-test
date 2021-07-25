@@ -11,6 +11,37 @@ import (
 
 var feeRate = decimal.NewFromFloat32(0.2)
 
+func newTransactionFactory(db pgxtype.Querier) TransactionFactory {
+	return TransactionFactory{db: db}
+}
+
+type TransactionFactory struct {
+	db pgxtype.Querier
+}
+
+func (ts TransactionFactory) FindAllWithWallet(ctx context.Context, wallet string) ([]*Transaction, error) {
+	rows, err := ts.db.Query(ctx, `SELECT id,currency,to_wallet,from_wallet,amount,fee,timestamp FROM transactions
+							WHERE to_wallet=$1 OR from_wallet=$1`, wallet)
+	if err != nil {
+		return nil, err
+	}
+
+	var txs []*Transaction
+	for rows.Next() {
+		t := &Transaction{
+			db: ts.db,
+		}
+		err := rows.Scan(&t.id, &t.currency, &t.to, &t.from, &t.amount, &t.fee, &t.timestamp)
+		if err != nil {
+			return nil, err
+		}
+
+		txs = append(txs, t)
+	}
+
+	return txs, nil
+}
+
 func newTransaction(db pgxtype.Querier, currency, from, to string, amount decimal.Decimal) (*Transaction, error) {
 	if currency == "" {
 		return nil, invalidCurrency
