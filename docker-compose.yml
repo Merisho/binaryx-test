@@ -1,6 +1,21 @@
 version: "3.9"  # optional since v1.27.0
 
 services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      DB_URL: postgres://admin:12345@postgres/test?sslmode=disable
+    depends_on:
+      - postgres
+  migrations:
+    image: migrate/migrate
+    command: -database postgres://admin:12345@postgres/test?sslmode=disable -path=/migrations/ up
+    volumes:
+      - ./migrations/:/migrations
+    depends_on:
+      - postgres
   postgres:
     image: postgres
     ports:
@@ -14,10 +29,11 @@ services:
   pgadmin:
     image: dpage/pgadmin4
     ports:
-      - "80:80"
+      - "8888:80"
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@example.com
       PGADMIN_DEFAULT_PASSWORD: 12345
+      PGADMIN_CONFIG_CONSOLE_LOG_LEVEL: 40
     volumes:
       - pg-admin-data-binaryx:/var/lib/pgadmin
 

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -27,15 +28,19 @@ type Config struct {
 	JWTSecret string
 	TokenTTLSeconds time.Duration
 	APIMode Mode
+	Port int
 }
 
 func NewServer(config Config, activeRecordFactory activerecord.Facade, serviceWallets *service.Wallets) (*Server, error) {
-	m := ReleaseMode
-	if config.APIMode != "" {
-		m = config.APIMode
+	if config.APIMode == "" {
+		config.APIMode = ReleaseMode
 	}
 
-	gin.SetMode(string(m))
+	gin.SetMode(string(config.APIMode))
+
+	if config.Port == 0 {
+		config.Port = 8080
+	}
 
 	s := &Server{
 		config: config,
@@ -58,6 +63,10 @@ type Server struct {
 
 func (s *Server) Gin() *gin.Engine {
 	return s.gin
+}
+
+func (s *Server) Listen() error {
+	return s.gin.Run(fmt.Sprintf(":%d", s.config.Port))
 }
 
 func (s *Server) initEndpoints() {
