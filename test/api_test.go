@@ -17,6 +17,9 @@ func TestAPI(t *testing.T) {
 type FakeCoinsAPITestSuite struct {
 	*APITestSuite
 	suite.Suite
+	testUserEmail string
+	testUserPassword string
+	testToken string
 }
 
 func (ts *FakeCoinsAPITestSuite) SetupSuite() {
@@ -25,6 +28,7 @@ func (ts *FakeCoinsAPITestSuite) SetupSuite() {
 
 func (ts *FakeCoinsAPITestSuite) TestAPI() {
 	ts.Run("sign up", ts.testSignUp)
+	ts.Run("sign in", ts.testSignIn)
 }
 
 func (ts *FakeCoinsAPITestSuite) testSignUp() {
@@ -38,6 +42,8 @@ func (ts *FakeCoinsAPITestSuite) testSignUp() {
 
 func (ts *FakeCoinsAPITestSuite) testSignUpSuccess() {
 	request := DefaultSignupRequest()
+	ts.testUserEmail = request.Email
+	ts.testUserPassword = request.Password
 
 	var response api.SignupResponse
 	res := ts.Request("POST", "/signup").
@@ -127,4 +133,26 @@ func (ts *FakeCoinsAPITestSuite) testInvalidNames() {
 		Do()
 	ts.Equal(400, res.Code)
 	ts.Equal("invalid last name", apiError.Error)
+}
+
+func (ts *FakeCoinsAPITestSuite) testSignIn() {
+	ts.Run("retrieve token", ts.testRetrieveToken)
+}
+
+func (ts *FakeCoinsAPITestSuite) testRetrieveToken() {
+	req := api.TokenRequest{
+		Email: ts.testUserEmail,
+		Password: ts.testUserPassword,
+	}
+
+	var tokenRes api.TokenResponse
+	res := ts.Request("POST", "/token").
+		WithRequestData(req).
+		WithResponseData(&tokenRes).
+		Do()
+	ts.Equal(200, res.Code)
+	ts.NotEmpty(tokenRes.Token)
+	ts.NotEmpty(tokenRes.ExpiresAt)
+
+	ts.testToken = tokenRes.Token
 }

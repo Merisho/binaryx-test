@@ -30,15 +30,11 @@ type facade struct {
 }
 
 func (f facade) User() UserFactory {
-	return UserFactory{
-		db: f.db,
-	}
+	return newUserFactory(f.db)
 }
 
 func (f facade) Wallet() WalletFactory {
-	return WalletFactory{
-		db: f.db,
-	}
+	return newWalletFactory(f.db)
 }
 
 func (f facade) Tx(ctx context.Context) (DBTransaction, error) {

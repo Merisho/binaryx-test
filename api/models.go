@@ -25,3 +25,13 @@ type WalletResponse struct{
 	Currency string `json:"currency"`
 	Balance string `json:"balance"`
 }
+
+type TokenRequest struct {
+	Email string `json:"email"`
+	Password string `json:"password"`
+}
+
+type TokenResponse struct {
+	Token string `json:"token"`
+	ExpiresAt int64 `json:"expiresAt"`
+}

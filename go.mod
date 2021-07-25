@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/gin-gonic/gin v1.7.2
+	github.com/golang-jwt/jwt v3.2.1+incompatible // indirect
 	github.com/google/uuid v1.2.0
 	github.com/jackc/pgconn v1.9.0 // indirect
 	github.com/jackc/pgtype v1.8.0 // indirect

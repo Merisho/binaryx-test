@@ -2,12 +2,15 @@ package api
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt"
 	"github.com/merisho/binaryx-test/activerecord"
 	"github.com/merisho/binaryx-test/service"
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -24,6 +27,7 @@ const (
 
 type Config struct {
 	JWTSecret string
+	TokenTTLSeconds time.Duration
 	APIMode Mode
 }
 
@@ -60,6 +64,7 @@ func (s *Server) Gin() *gin.Engine {
 
 func (s *Server) initEndpoints() {
 	s.gin.Handle(http.MethodPost, "/signup", s.signup)
+	s.gin.Handle(http.MethodPost, "/token", s.token)
 }
 
 func (s *Server) signup(ctx *gin.Context) {
@@ -154,4 +159,51 @@ func (s *Server) signup(ctx *gin.Context) {
 		LastName: user.LastName(),
 		Wallets: walletsRes,
 	})
+}
+
+func (s *Server) token(ctx *gin.Context) {
+	var req TokenRequest
+	err := ctx.ShouldBindJSON(&req)
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, ErrorResponse{Error: "invalid request body"})
+		return
+	}
+
+	user, err := s.activeRecords.User().FindByEmail(ctx, req.Email)
+	if err != nil {
+		switch err.(type) {
+		case activerecord.NotFoundError:
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, ErrorResponse{Error: "user not found"})
+		default:
+			log.WithError(err).Error("could not find user by email")
+			ctx.AbortWithStatus(http.StatusInternalServerError)
+		}
+
+		return
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password()), []byte(req.Password))
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, ErrorResponse{Error: "invalid password"})
+		return
+	}
+
+	expires := time.Now().Add(s.config.TokenTTLSeconds * time.Second)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &jwt.StandardClaims{
+		Id:        user.ID().String(),
+		ExpiresAt: expires.Unix(),
+	})
+
+	signed, err := token.SignedString([]byte(s.config.JWTSecret))
+	if err != nil {
+		log.WithError(err).Error("error secret signing jwt token")
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	res := TokenResponse{
+		Token:     signed,
+		ExpiresAt: expires.Unix(),
+	}
+	ctx.JSON(http.StatusOK, res)
 }

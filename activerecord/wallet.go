@@ -15,6 +15,12 @@ import (
 
 var addressesRandomGenerator = rand.New(rand.NewSource(time.Now().Unix()))
 
+func newWalletFactory(db pgxtype.Querier) WalletFactory {
+	return WalletFactory{
+		db: db,
+	}
+}
+
 type WalletFactory struct {
 	db pgxtype.Querier
 }

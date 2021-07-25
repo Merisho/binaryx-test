@@ -10,8 +10,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgtype/pgxtype"
+	"github.com/jackc/pgx/v4"
 	"golang.org/x/crypto/bcrypt"
 )
+
+func newUserFactory(db pgxtype.Querier) UserFactory {
+	return UserFactory{
+		db: db,
+	}
+}
 
 type UserFactory struct {
 	db pgxtype.Querier
@@ -19,6 +26,29 @@ type UserFactory struct {
 
 func (uf UserFactory) New(email, password, firstName, lastName string) (*User, error) {
 	return newUser(uf.db, email, password, firstName, lastName)
+}
+
+func (uf UserFactory) FindByEmail(ctx context.Context, email string) (*User, error) {
+	user := &User{
+		db:        uf.db,
+		id:        uuid.UUID{},
+		email:     "",
+		password:  "",
+		firstName: "",
+		lastName:  "",
+		wallets:   nil,
+	}
+	err := uf.db.QueryRow(ctx, `SELECT id,email,password,first_name,last_name FROM users WHERE email=$1`, email).
+		Scan(&user.id, &user.email, &user.password, &user.firstName, &user.lastName)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, notFoundError
+		}
+
+		return nil, err
+	}
+
+	return user, nil
 }
 
 func newUser(db pgxtype.Querier, email, password, firstName, lastName string) (*User, error) {
@@ -123,6 +153,10 @@ func (u *User) LastName() string {
 
 func (u *User) Wallets() []*Wallet {
 	return u.wallets
+}
+
+func (u *User) Password() string {
+	return u.password
 }
 
 func invalidPassword(password string) bool {
