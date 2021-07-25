@@ -5,7 +5,7 @@ To run as docker-compose bundle `docker-compose up`. Supply needed environment v
 
 ## Implemented features
 - Signup: creates 2 wallets for fake coins fBTC and fETH, issues one transaction for each with 100 amount
-- JWT token retrieval
+- JWT token retrieval and authorization
 - List wallets
 
 ## Approach
